@@ -105,20 +105,19 @@ docker/         the images entries run in on the league, to test with --docker
 ## Keeping up to date
 
 The league plays on its own copy of the game. When the game changes, this repository is updated, and
-`./aimoba submit` tells you if your copy is behind. Then:
-
-```
-git pull
-```
-
-or, in a repository you started from the template:
+`./aimoba submit` tells you if your copy is behind. In a repository you started from the template, take the
+template's files over yours:
 
 ```
 git remote add template https://github.com/jbettaque/aimoba-league      # once
-git pull template main --allow-unrelated-histories
+git fetch template
+git checkout template/main -- .
+git commit -m "Update the game from the template"
 ```
 
-Your bots live in `bots/`, which updates never touch.
+That replaces the game, the tools and the guides with the template's and leaves `bots/` alone, so there are
+no merge conflicts. (Files you changed outside `bots/` are replaced too.) Run `npm install` afterwards in case
+the dependencies changed, and test your bot again. In a plain clone of the template, `git pull` does the same.
 
 This repository is generated from the game's main repository (`TEMPLATE_VERSION` says from which commit).
 Reports of problems are welcome here; changes to the game itself are made there.

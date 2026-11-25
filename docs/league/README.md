@@ -131,7 +131,8 @@ and a form to enter a bot from any public repository without the command line:
 ```
 
 If `submit` says that your copy of the game differs from the league's, the game has been updated since you
-cloned it: pull from the template (see its README) and test your bot again.
+cloned it: take the template's files over yours (the template's README, "Keeping up to date", has the four
+commands; your bots are not touched) and test your bot again.
 
 Things that keep an entry from being fetched: a private repository, a commit that is not pushed, a folder without
 `aimoba.json`, files kept in Git LFS (commit them normally; GitHub takes files up to 100 MB), and a repository
