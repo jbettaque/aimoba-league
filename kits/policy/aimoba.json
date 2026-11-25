@@ -1,0 +1,6 @@
+{
+  "name": "starter-policy",
+  "runtime": "policy",
+  "entry": "model.bin",
+  "description": "A trained network, run by the league without any code"
+}

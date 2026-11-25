@@ -1,0 +1,6 @@
+{
+  "name": "starter-js",
+  "runtime": "node",
+  "entry": "bot.js",
+  "description": "Rule-based starter bot in JavaScript"
+}

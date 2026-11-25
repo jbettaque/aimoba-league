@@ -1,0 +1,28 @@
+{
+  "name": "aimoba-league",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Build a bot for AIMOBA and enter it in the league",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "bin": {
+    "aimoba": "bin/aimoba.ts"
+  },
+  "scripts": {
+    "aimoba": "node bin/aimoba.ts",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource/alegreya-sans": "^5.3.0",
+    "@types/node": "^22.10.0",
+    "@types/three": "^0.187.0",
+    "three": "^0.187.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}

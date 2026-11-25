@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aimoba"
+version = "0.1.0"
+description = "Python bindings for the AIMOBA 5v5 MOBA training environment"
+requires-python = ">=3.9"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+gym = ["gymnasium"]
+track = ["mlflow"]
+train = ["torch", "gymnasium", "mlflow"]
+
+[tool.setuptools]
+packages = ["aimoba"]

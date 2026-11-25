@@ -1,0 +1,21 @@
+[
+  {
+    "id": "imitation",
+    "label": "Imitation",
+    "blurb": "Only copies the Expert bot (imitation, no reinforcement learning). Loses to the Expert bots and to most Normal ones.",
+    "file": "imitation.bin",
+    "greedy": true
+  },
+  {
+    "id": "ppo",
+    "label": "PPO",
+    "blurb": "Imitation, then PPO against the scripted bots. Trained before the current rules; beats the Expert bots in about two games of three.",
+    "file": "ppo.bin"
+  },
+  {
+    "id": "selfplay",
+    "label": "Self-play",
+    "blurb": "PPO, then 17,700 updates against earlier versions of itself and against models trained only to beat it, the last 9,000 under the current rules. Farms its lanes instead of rushing towers as a pack; has not lost to the Expert bots in 220 games.",
+    "file": "selfplay.bin"
+  }
+]

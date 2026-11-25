@@ -1,0 +1,16 @@
+node_modules/
+dist/
+/.vite/
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.DS_Store
+
+# What playing and training produce. Your bots (bots/) are yours to commit.
+replays/
+*.replay.json
+runs/
+mlruns/
+mlartifacts/
+mlflow.db

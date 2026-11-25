@@ -1,0 +1,6 @@
+{
+  "name": "starter-model",
+  "runtime": "python",
+  "entry": "bot.py",
+  "description": "Python agent that runs a trained network"
+}

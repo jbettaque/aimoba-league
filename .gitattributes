@@ -1,0 +1,7 @@
+# The command and the scripts must keep Unix line endings to run on macOS and Linux.
+aimoba text eol=lf
+*.sh text eol=lf
+*.cmd text eol=crlf
+*.glb binary
+*.bin binary
+*.png binary

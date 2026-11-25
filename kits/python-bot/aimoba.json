@@ -1,0 +1,6 @@
+{
+  "name": "starter-python",
+  "runtime": "python",
+  "entry": "bot.py",
+  "description": "Rule-based starter bot in Python"
+}

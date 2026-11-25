@@ -1,0 +1,3 @@
+#!/bin/sh
+# The AIMOBA league command line: ./aimoba help
+exec node "$(dirname "$0")/bin/aimoba.ts" "$@"
