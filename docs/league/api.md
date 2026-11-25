@@ -55,7 +55,7 @@ The view is the same in both languages; in Python it is a dict (`state["heroes"]
 | Option (JS / Python) | Default | Meaning |
 | --- | --- | --- |
 | `observations` | `['view']` | What to receive each decision: `'view'` (described here), `'obs'` (the [ML observation](ml.md)), or both. |
-| `decisionTicks` / `decision_ticks` | 6 | Game ticks between decisions. 30 ticks are one second, so 6 is five decisions a second. Allowed: 3 to 30. Thinking time is per second of game, so deciding more often gives less time per decision. |
+| `decisionTicks` / `decision_ticks` | 6 | Game ticks between decisions. 30 ticks are one second, so 6 is five decisions a second. The league's rules fix it at 6 for everyone, so that no bot reacts faster than another; another value is set to 6 and your log says so. |
 | `mirror` | true | Mirror the map for Red, so your base is always bottom-left. Turn it off to get world coordinates. |
 | `autoLevel` / `auto_level` | true | Heroes spend skill points by themselves (ultimate first, then the hero's usual order). A list of five sets it per hero. |
 | `autoBuy` / `auto_buy` | true | Heroes shop along their build whenever they are at the fountain or dead. |

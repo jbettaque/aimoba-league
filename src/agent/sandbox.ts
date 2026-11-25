@@ -134,7 +134,7 @@ export function dockerArgs(m: Manifest, dir: string, cfg: DockerConfig, name: st
 export function launch(m: Manifest, dir: string, sandbox: SandboxConfig = { driver: 'process' }): Launched {
   if (sandbox.driver === 'docker') {
     const cfg: DockerConfig = { ...DEFAULT_DOCKER, ...sandbox.docker, images: { ...DEFAULT_DOCKER.images, ...sandbox.docker?.images } };
-    const name = `aimoba-${randomBytes(8).toString('hex')}`;
+    const name = sandboxName();
     const args = dockerArgs(m, dir, cfg, name);
     const child = spawn(cfg.bin, args, { stdio: ['pipe', 'pipe', 'pipe'], env: baseEnv(), windowsHide: true });
     let killed = false;
@@ -215,11 +215,20 @@ export function sweepContainers(sandbox: SandboxConfig) {
   if (sandbox.driver !== 'docker') return;
   const bin = sandbox.docker?.bin ?? DEFAULT_DOCKER.bin;
   try {
-    const list = spawnSync(bin, ['ps', '--all', '--quiet', '--filter', 'name=^aimoba-', '--filter', 'status=created', '--filter', 'status=exited', '--filter', 'status=dead'], { encoding: 'utf8', timeout: 15_000, windowsHide: true });
-    const ids = (list.stdout ?? '').split(/\s+/).filter(Boolean);
+    const list = spawnSync(bin, ['ps', '--all', '--filter', 'name=aimoba-', '--filter', 'status=created', '--filter', 'status=exited', '--filter', 'status=dead', '--format', '{{.ID}} {{.Names}}'],
+      { encoding: 'utf8', timeout: 15_000, windowsHide: true });
+    // Only the sandbox's own containers, by the names `launch` and `prepareEntry` give them; never the league's
+    // server or anything else whose name merely starts the same way.
+    const ids = (list.stdout ?? '').split('\n').map((l) => l.trim().split(' ')).filter(([id, name]) => id && isSandboxName(name ?? '')).map(([id]) => id);
     if (ids.length) spawnSync(bin, ['rm', '--force', ...ids], { stdio: 'ignore', timeout: 30_000, windowsHide: true });
   } catch { /* the daemon is not reachable; nothing to sweep */ }
 }
+
+/** A fresh name for an entry's container. */
+export const sandboxName = () => `aimoba-${randomBytes(8).toString('hex')}`;
+
+/** Names of the containers the sandbox starts: aimoba-<16 hex> for an entry, aimoba-prep-<12 hex> for a mount check. */
+export const isSandboxName = (name: string) => /^aimoba-(?:[0-9a-f]{16}|prep-[0-9a-f]{12})$/.test(name);
 
 /** Whether the docker driver can work on this machine: the CLI answers and the daemon is up. */
 export function dockerAvailable(bin = 'docker'): { ok: boolean; detail: string } {

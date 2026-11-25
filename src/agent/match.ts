@@ -159,6 +159,7 @@ export async function runMatch(opts: MatchOptions): Promise<MatchResult> {
       try {
         const ready = await side.agent.init(info, rules.initMs);
         side.options = normalizeOptions(ready, rules, side.spec.name);
+        side.notes.push(...side.options.notes);
         side.budgetMs = stepBudgetMs(rules, side.options.decisionTicks);
       } catch (err) {
         if (err instanceof SandboxError) throw err; // the match cannot be played; nobody forfeits
@@ -174,6 +175,8 @@ export async function runMatch(opts: MatchOptions): Promise<MatchResult> {
         seed: opts.seed, maxTime: rules.maxTime, recordCommands: opts.record ?? true,
         bots: per((side) => side.agent === null),
         botKind: per((side) => (side.spec.kind === 'builtin' ? side.spec.bot : 'basic')),
+        // The game's scripted bots decide no more often than the entries may.
+        botMinThinkTicks: rules.minDecisionTicks,
         autoLevel: per((side, k) => (side.options ? side.options.autoLevel[k] : null)),
         autoBuy: per((side, k) => (side.options ? side.options.autoBuy[k] : null)),
         autoAttack: per((side, k) => (side.options ? side.options.autoAttack[k] : null)),

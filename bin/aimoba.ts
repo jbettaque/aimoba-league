@@ -417,7 +417,7 @@ function cmdInfo(argv: string[]) {
   const r = info.rules;
   console.log(`  game time limit ${r.maxTime / 60} min, then decided on structures, then kills`);
   console.log(`  thinking time ${r.msPerGameSecond} ms per game second (${stepBudgetMs(r, 6)} ms per decision at 5 decisions a second) + ${r.bankMs / 1000} s bank per game`);
-  console.log(`  decisions every ${r.minDecisionTicks}-${r.maxDecisionTicks} ticks (${info.tickRate} ticks a second), start-up within ${r.initMs / 1000} s`);
+  console.log(`  decisions every ${r.minDecisionTicks === r.maxDecisionTicks ? r.minDecisionTicks : `${r.minDecisionTicks}-${r.maxDecisionTicks}`} ticks (${info.tickRate} ticks a second), start-up within ${r.initMs / 1000} s`);
   console.log(bold('\nHeroes') + dim('  (index in your team, lane, abilities with targeting and range)'));
   for (const h of info.heroes) console.log(`  ${h.index} ${h.id.padEnd(8)} ${h.role.padEnd(9)} ${['jungle', 'top', 'mid', 'bot'][h.lane + 1].padEnd(6)} ${h.abilities.map((ab) => `${ab.key} ${ab.name} (${ab.targeting}${ab.range ? ' ' + ab.range : ''})`).join(', ')}`);
   console.log(bold('\nML interface'));

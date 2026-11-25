@@ -48,6 +48,11 @@ export interface GameConfig {
   recordCommands?: boolean;
   /** Minimum reaction time of scripted bots in seconds (default 0.2, human-like). 0 = instant. */
   botReaction?: number;
+  /**
+   * Fewest ticks between two decisions of a scripted bot (default: none; each bot keeps its own rhythm, which for
+   * the expert bot is every 3 ticks). The league sets it to the cadence of its entries, so no side decides more often.
+   */
+  botMinThinkTicks?: number;
 }
 
 /** Velocity history length per hero, in ticks (must exceed the largest reaction time). */
@@ -1406,6 +1411,8 @@ export class Game {
       if (h.isBot && tick >= h.botNextThink) {
         h.botNextThink = tick + 5 + this.rng.int(3);
         (BOT_KINDS[h.botKind] ?? botThink)(this, u);
+        const floor = this.cfg.botMinThinkTicks ?? 0;
+        if (floor > 0 && h.botNextThink < tick + floor) h.botNextThink = tick + floor;
       }
     }
 

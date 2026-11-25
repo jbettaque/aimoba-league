@@ -19,7 +19,8 @@
  *   observations    ["view"] (default), ["obs"] or both: which forms of the game state to send each step.
  *                   "view" is the structured view (view.ts); "obs" is the ML interface: `obs` is base64 of
  *                   5 x obsSize little-endian float32, `mask` base64 of 5 x maskSize bytes, one row per hero.
- *   decisionTicks   sim ticks between decisions (default 6 = five decisions a second; the rules give the range)
+ *   decisionTicks   sim ticks between decisions; the rules set what is allowed (`info.rules`), which by default
+ *                   is 6 for everyone: five decisions a second. Another value is set to the nearest allowed one.
  *   mirror          true (default): Red sees the map mirrored, so its own base is always bottom-left
  *   autoLevel       true (default): heroes spend skill points by themselves. A list of five sets it per hero.
  *   autoBuy         true (default): heroes shop along their build by themselves when at the fountain
@@ -39,6 +40,8 @@ export interface AgentOptions {
   autoLevel: boolean[];
   autoBuy: boolean[];
   autoAttack: boolean[];
+  /** What was asked for but not allowed, and what was done instead (for the agent's log). */
+  notes: string[];
 }
 
 export interface HelloMessage { type: 'hello'; protocol: number; info: GameInfo }
@@ -69,11 +72,18 @@ const five = (v: unknown, dflt: boolean): boolean[] => {
 export function normalizeOptions(raw: unknown, rules: MatchRules, fallbackName: string): AgentOptions {
   const r = (typeof raw === 'object' && raw !== null ? raw : {}) as ReadyMessage;
   const wanted = Array.isArray(r.observations) ? r.observations.filter((o): o is Observation => o === 'view' || o === 'obs') : [];
-  const ticks = typeof r.decisionTicks === 'number' && Number.isFinite(r.decisionTicks) ? Math.round(r.decisionTicks) : 6;
+  const asked = typeof r.decisionTicks === 'number' && Number.isFinite(r.decisionTicks) ? Math.round(r.decisionTicks) : 6;
+  const decisionTicks = Math.min(rules.maxDecisionTicks, Math.max(rules.minDecisionTicks, asked));
+  const notes: string[] = [];
+  if (decisionTicks !== asked) {
+    const allowed = rules.minDecisionTicks === rules.maxDecisionTicks ? `every entry decides every ${rules.minDecisionTicks} ticks` : `decisions are ${rules.minDecisionTicks} to ${rules.maxDecisionTicks} ticks apart`;
+    notes.push(`[runner] decisionTicks ${asked} is not allowed (${allowed}): this bot decides every ${decisionTicks} ticks`);
+  }
   return {
     name: typeof r.name === 'string' && r.name.trim() ? r.name.trim().slice(0, 60) : fallbackName,
     observations: wanted.length ? [...new Set(wanted)] : ['view'],
-    decisionTicks: Math.min(rules.maxDecisionTicks, Math.max(rules.minDecisionTicks, ticks)),
+    decisionTicks,
+    notes,
     mirror: typeof r.mirror === 'boolean' ? r.mirror : true,
     autoLevel: five(r.autoLevel, true),
     autoBuy: five(r.autoBuy, true),

@@ -15,13 +15,13 @@ destroyed more structures; if that is level, to the team with more kills; if tha
 
 The game waits for your bot's answer, so a match plays out the same on any machine. The waiting is on the clock:
 
-- **250 ms per second of game time.** At the default five decisions a second that is 50 ms per decision. A bot
-  that decides ten times a second has 25 ms each.
+- **Five decisions a second, for everyone.** Every bot decides every 6 game ticks (200 ms of game time), the
+  cadence the game's models are trained at. No bot reacts faster than another: in league matches the game's own
+  scripted bots are held to it too (the `expert` bot otherwise decides every 3 ticks).
+- **250 ms per second of game time**, which at five decisions a second is 50 ms per decision.
 - **A reserve of 10 seconds per game.** Whenever a decision takes longer than its share, the excess comes out of
   the reserve. When the reserve is empty, the bot forfeits the game.
 - **15 seconds to start.** From the start of the program to its answer to `hello`. Load models here.
-
-A bot may decide every 3 to 30 game ticks (30 ticks are one second).
 
 `./aimoba play` and `./aimoba validate` report how long your decisions took.
 

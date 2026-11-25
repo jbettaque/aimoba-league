@@ -19,7 +19,11 @@ export const PROTOCOL_VERSION = 1;
 export interface MatchRules {
   /** Game time limit in seconds. A game that reaches it is decided on structures, then kills (see `judge` in match.ts). */
   maxTime: number;
-  /** Fewest and most sim ticks between two decisions an agent may ask for (30 ticks = 1 second). */
+  /**
+   * Fewest and most sim ticks between two decisions an agent may ask for (30 ticks = 1 second). By default both are
+   * 6: every entry decides five times a second, the cadence the game's models are trained at, so that no entry
+   * reacts faster than another.
+   */
   minDecisionTicks: number;
   maxDecisionTicks: number;
   /** Thinking time: wall-clock milliseconds per second of game time, spread over the agent's decisions. */
@@ -38,8 +42,8 @@ export interface MatchRules {
 
 export const DEFAULT_RULES: MatchRules = {
   maxTime: 30 * 60,
-  minDecisionTicks: 3,
-  maxDecisionTicks: 30,
+  minDecisionTicks: 6,
+  maxDecisionTicks: 6,
   msPerGameSecond: 250,
   bankMs: 10_000,
   initMs: 15_000,
