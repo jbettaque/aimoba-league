@@ -1,5 +1,6 @@
 /**
- * A small zip reader and writer for submissions (no dependencies; `node:zlib` does the compression).
+ * A small zip reader and writer (no dependencies; `node:zlib` does the compression). The league reads entries out
+ * of the archives GitHub makes of a commit.
  *
  * The reader is written for archives from strangers: it refuses anything that could write outside the target
  * directory (absolute paths, `..`, drive letters), symbolic links, encrypted or zip64 entries, and it never
@@ -8,7 +9,20 @@
 import { crc32, deflateRawSync, inflateRawSync } from 'node:zlib';
 
 export interface ZipEntry { name: string; data: Buffer }
-export interface ZipLimits { maxFiles: number; maxTotalBytes: number; maxFileBytes: number }
+export interface ZipLimits {
+  /** Most files taken out of the archive. */
+  maxFiles: number;
+  maxTotalBytes: number;
+  maxFileBytes: number;
+  /** Most entries the archive may list at all, the skipped ones included (default: twice maxFiles). */
+  maxEntries?: number;
+}
+
+/**
+ * Picks the entries to take out and renames them: return the name to give the file, or null to skip it. A skipped
+ * entry is never unpacked and does not count toward the limits (other than `maxEntries`), whatever it is.
+ */
+export type ZipSelect = (rawName: string) => string | null;
 
 export const DEFAULT_ZIP_LIMITS: ZipLimits = { maxFiles: 500, maxTotalBytes: 64 * 1024 * 1024, maxFileBytes: 48 * 1024 * 1024 };
 
@@ -26,7 +40,7 @@ export function safeName(raw: string): string | null {
   return name;
 }
 
-export function readZip(buf: Buffer, limits: ZipLimits = DEFAULT_ZIP_LIMITS): ZipEntry[] {
+export function readZip(buf: Buffer, limits: ZipLimits = DEFAULT_ZIP_LIMITS, select?: ZipSelect): ZipEntry[] {
   // The end-of-central-directory record is within the last 64 KiB + 22 bytes.
   let eocd = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 0xffff); i--) {
@@ -37,7 +51,8 @@ export function readZip(buf: Buffer, limits: ZipLimits = DEFAULT_ZIP_LIMITS): Zi
   const dirSize = buf.readUInt32LE(eocd + 12), dirOffset = buf.readUInt32LE(eocd + 16);
   if (count === 0xffff || dirOffset === 0xffffffff || dirSize === 0xffffffff) throw new ZipError('zip64 archives are not supported');
   if (dirOffset + dirSize > eocd) throw new ZipError('the archive is damaged (central directory out of bounds)');
-  if (count > limits.maxFiles * 2) throw new ZipError(`too many entries in the archive (limit ${limits.maxFiles} files)`);
+  const maxEntries = limits.maxEntries ?? limits.maxFiles * 2;
+  if (count > maxEntries) throw new ZipError(`too many entries in the archive (${count}; limit ${maxEntries})`);
 
   const out: ZipEntry[] = [];
   const seen = new Set<string>();
@@ -52,14 +67,20 @@ export function readZip(buf: Buffer, limits: ZipLimits = DEFAULT_ZIP_LIMITS): Zi
     p += 46 + nlen + xlen + clen;
 
     if (rawName.endsWith('/') || rawName.endsWith('\\')) continue; // a directory
+    let wanted = rawName;
+    if (select) {
+      const picked = select(rawName);
+      if (picked === null) continue;
+      wanted = picked;
+    }
     const unixMode = madeBy >> 8 === 3 ? attrs >>> 16 : 0;
     if ((unixMode & 0o170000) === 0o120000) throw new ZipError(`${rawName}: symbolic links are not allowed`);
     if (unixMode && (unixMode & 0o170000) !== 0o100000 && (unixMode & 0o170000) !== 0) throw new ZipError(`${rawName}: only regular files are allowed`);
     if (flags & 1) throw new ZipError(`${rawName}: encrypted entries are not supported`);
     if (csize === 0xffffffff || usize === 0xffffffff || local === 0xffffffff) throw new ZipError('zip64 archives are not supported');
     if (method !== 0 && method !== 8) throw new ZipError(`${rawName}: unsupported compression method ${method}`);
-    const name = safeName(rawName);
-    if (!name) throw new ZipError(`unsafe or invalid file name in the archive: ${JSON.stringify(rawName.slice(0, 80))}`);
+    const name = safeName(wanted);
+    if (!name) throw new ZipError(`unsafe or invalid file name in the archive: ${JSON.stringify(wanted.slice(0, 80))}`);
     if (seen.has(name.toLowerCase())) throw new ZipError(`${name}: the same file appears twice`);
     seen.add(name.toLowerCase());
     if (out.length + 1 > limits.maxFiles) throw new ZipError(`too many files (limit ${limits.maxFiles})`);

@@ -43,7 +43,7 @@ On the league an entry runs in a sandbox:
 - no network,
 - its own folder, read-only, plus a small writable `/tmp` that is empty at the start of every game,
 - nothing carries over from one game to the next,
-- at most 16 MiB uploaded, 64 MiB unpacked, 500 files.
+- at most 64 MiB and 500 files in the entry's folder, from a repository whose archive is at most 100 MiB.
 
 What is installed: Node.js 24 for `node` entries; Python 3.12 with numpy, PyTorch (CPU) and ONNX Runtime for
 `python` entries; a plain Debian system for `command` entries. Copy anything else your entry needs into its
@@ -57,9 +57,15 @@ games to each other, is not allowed. The league's admins can block entries and s
 
 ## Entering
 
-Uploading a version starts a check: the entry plays one minute of game time against the `easy` bots from each
+Entries come from public GitHub repositories. A version of a bot is one commit of one folder: the league fetches
+it once, when you enter it, and from then on plays exactly that. Its page links to the commit, so anyone can read
+the code that played. Making the repository private later does not withdraw the bot; withdraw it on your account
+page.
+
+Entering a version starts a check: the entry plays one minute of game time against the `easy` bots from each
 side. If it forfeits, the version is rejected and you see why (only you do). Otherwise it becomes the version
-that plays. Up to 20 uploads a day.
+that plays. Up to 20 new versions a day. Entering a commit in which the bot's folder did not change makes no new
+version.
 
 A new version takes over the bot's rating and record. The version that is active when a tournament starts plays
 the whole tournament.

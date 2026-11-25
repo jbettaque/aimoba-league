@@ -2,7 +2,7 @@
 
 There are three ways to enter a model, from no code at all to complete freedom.
 
-| Way | You upload | Use it when |
+| Way | Your entry's folder holds | Use it when |
 | --- | --- | --- |
 | `policy` | One file, `model.bin`, exported from the repository's trainer | Your network has the trainer's architecture (an MLP of any width and depth). |
 | `python` | A Python script plus your weights | You have your own architecture, your own observation features, or want rules around the network. |

@@ -24,23 +24,26 @@ npm install
 ./aimoba bench my-bot easy -n 40      # win rate over 40 games
 ```
 
-On Windows the command is `.\aimoba`. To keep your bots under version control, start your own repository from
-this one ("Use this template" on GitHub) and clone that instead.
+On Windows the command is `.\aimoba`.
+
+The league takes bots from public GitHub repositories, so start your own from this one: **Use this template**
+on GitHub, make the new repository public, and clone that instead of this one. Your bots live in `bots/`, which
+is meant to be committed.
 
 Then open `bots/my-bot/bot.js`: the whole bot is one function that runs five times a second. When it does what
-you want:
+you want, commit and push it, and enter it:
 
 ```
 ./aimoba validate my-bot              # the league's checks, run here
-./aimoba login --server https://<the league>
-./aimoba submit my-bot
+./aimoba login --server https://aimoba.joleif.dev
+./aimoba submit my-bot                # enters the commit you have checked out
 ```
 
 ## Guides
 
 - [Get started](docs/league/README.md): the same steps with more explanation
 - [What a bot sees and can do](docs/league/api.md): every field of the game state, every order, the helpers
-- [Entering a trained model](docs/league/ml.md): the observation and action of the ML interface, training, uploading a network
+- [Entering a trained model](docs/league/ml.md): the observation and action of the ML interface, training, entering a network
 - [Other languages](docs/league/protocol.md): the protocol, for a bot in anything else
 - [Rules and ranking](docs/league/rules.md): thinking time, the sandbox, the tournament, the ratings
 

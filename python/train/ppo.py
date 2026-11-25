@@ -66,6 +66,8 @@ p.add_argument("--frame-skip", type=int, default=6, help="sim ticks per decision
 p.add_argument("--max-time", type=float, default=1500.0, help="game time limit in seconds")
 p.add_argument("--team-spirit", type=float, default=0.3, help="0 = every hero for itself, 1 = fully shared team reward")
 p.add_argument("--zero-sum", type=float, default=1.0, help="share of the enemy team's mean reward subtracted from every hero's reward")
+p.add_argument("--reward", default=None, help="reward weights to change, e.g. kill=3,assist=1.5 (see DEFAULT_REWARD in src/sim/ml.ts); "
+               "the win rate is what tells whether a differently paid policy plays better")
 # PPO.
 p.add_argument("--steps", type=int, default=128, help="rollout length per update")
 p.add_argument("--lr", type=float, default=3e-4)
@@ -111,7 +113,8 @@ opponents = args.opponent.split(",")
 n_self = max(0, min(args.self_play_procs, args.procs))
 proc_opponent = [opponents[(i // 2 if args.sides == "both" else i) % len(opponents)] for i in range(args.procs - n_self)] + [SELF] * n_self
 proc_side = [(i % 2) if args.sides == "both" else int(args.sides == "red") for i in range(args.procs)]
-common = dict(seed=args.seed, expert=args.expert, frame_skip=args.frame_skip, max_time=args.max_time, team_spirit=args.team_spirit, zero_sum=args.zero_sum)
+reward = {k: float(v) for k, v in (kv.split("=") for kv in args.reward.split(","))} if args.reward else None
+common = dict(seed=args.seed, expert=args.expert, frame_skip=args.frame_skip, max_time=args.max_time, team_spirit=args.team_spirit, zero_sum=args.zero_sum, reward=reward)
 if n_self:
     env = LeagueEnv(proc_opponent, proc_side, args.envs, device, **common)
 else:

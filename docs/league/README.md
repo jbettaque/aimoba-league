@@ -7,7 +7,7 @@ updated. A bot can be a few rules in JavaScript or Python, a trained neural netw
 This page gets a bot of yours playing in five minutes. Then:
 
 - [What a bot sees and can do](api.md): every field of the game state and every order
-- [Entering a trained model](ml.md): the fixed-size observation, training, and uploading a network
+- [Entering a trained model](ml.md): the fixed-size observation, training, and entering a network
 - [Other languages](protocol.md): the protocol, if you want to write a bot in something else
 - [Rules and ranking](rules.md): time limits, what is allowed, how the tournament and ratings work
 
@@ -100,7 +100,16 @@ Whatever your bot prints (`console.log`, `print`) is shown after the game as its
 
 ## 5. Enter it
 
-Check it the way the league will, then upload:
+The league takes bots from **public GitHub repositories**: everyone can read the code that plays, and every
+version of a bot is a commit you can point to. The easiest way to have one is to start from the template:
+
+1. On the template's GitHub page, choose **Use this template**, then **Create a new repository**. Make it
+   **public**. Then clone your new repository instead of the template, and `npm install` in it.
+   (Already working in a clone of the template? Create an empty public repository on GitHub and point your
+   clone at it: `git remote set-url origin https://github.com/<you>/<repo>`, then `git push -u origin main`.)
+2. Your bots live in `bots/`, which is meant to be committed: `git add bots && git commit -m "my bot" && git push`.
+
+Then check the bot the way the league will, and enter it:
 
 ```
 ./aimoba validate my-bot
@@ -108,13 +117,26 @@ Check it the way the league will, then upload:
 ./aimoba submit my-bot -m "first version"
 ```
 
-If `submit` says that your copy of the game differs from the league's, the game has been updated since you
-cloned it: `git pull` (or pull from the template into your own repository) and test your bot again.
+`login` asks for an API token, which you create on your account page on the league's site. `submit` tells the
+league which repository, folder and commit your bot is (the commit you have checked out, so push it first). The
+league fetches that folder from GitHub and plays it in a short check game from each side. If it gets through
+without crashing or running out of time, it is accepted and plays in the next tournament.
 
-`login` asks for an API token, which you create on your account page on the league's site. `submit` uploads the
-bot's folder and waits while the league plays it in a short check game from each side. If it gets through
-without crashing or running out of time, it is accepted and plays in the next tournament. Uploading again
-replaces the version that plays; the bot keeps its rating.
+To enter a new version, commit, push and `submit` again; the bot keeps its rating. The account page on the site
+also has a **Fetch latest** button for each bot, which enters the newest commit of the branch you entered it from,
+and a form to enter a bot from any public repository without the command line:
+
+```
+./aimoba submit --repo https://github.com/<you>/<repo> --path bots/my-bot     # the same, without a checkout
+```
+
+If `submit` says that your copy of the game differs from the league's, the game has been updated since you
+cloned it: pull from the template (see its README) and test your bot again.
+
+Things that keep an entry from being fetched: a private repository, a commit that is not pushed, a folder without
+`aimoba.json`, files kept in Git LFS (commit them normally; GitHub takes files up to 100 MB), and a repository
+whose archive is larger than 100 MB (keep training runs and replays out of it; the template's `.gitignore`
+already does).
 
 ```
 ./aimoba status          your bots, their ratings and places

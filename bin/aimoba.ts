@@ -11,7 +11,7 @@
  * `aimoba help` lists everything.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -25,7 +25,7 @@ import { defaultPython, dockerAvailable, prepareEntry, type SandboxConfig } from
 import { gameFingerprint } from '../src/agent/version.ts';
 import { runLocalTournament } from '../src/league/local.ts';
 import { wilson } from '../src/league/rating.ts';
-import { writeZip } from '../src/league/zip.ts';
+import { parseRepo } from '../src/league/source.ts';
 
 // --- Small helpers ---------------------------------------------------------------------------------------------
 const tty = process.stdout.isTTY && !process.env.NO_COLOR;
@@ -369,9 +369,25 @@ async function cmdValidate(argv: string[]) {
   const ok = (s: string) => console.log(`${green('ok')}    ${s}`);
   const bad = (s: string) => { console.log(`${red('fail')}  ${s}`); process.exitCode = 1; };
   ok(`${MANIFEST}: "${spec.manifest.name}", runtime ${spec.manifest.runtime}`);
-  const { bytes, files } = pack(spec.dir);
-  const limit = 16 * 1024 * 1024;
-  (bytes.length <= limit ? ok : bad)(`archive: ${files} files, ${(bytes.length / 1024).toFixed(0)} KiB packed (limit ${limit / 1024 / 1024} MiB)`);
+  const { bytes, files } = entrySize(spec.dir);
+  const limit = 64 * 1024 * 1024, fileLimit = 500;
+  (bytes <= limit && files <= fileLimit ? ok : bad)(`size: ${files} files, ${(bytes / 1024).toFixed(0)} KiB (limits: ${fileLimit} files, ${limit / 1024 / 1024} MiB)`);
+  // Where the league would fetch it from.
+  const warn = (s: string) => console.log(`${yellow('warn')}  ${s}`);
+  try {
+    const src = localSource(spec.dir);
+    ok(`source: github.com/${src.repo.owner}/${src.repo.repo}${src.path ? `, folder ${src.path}` : ''}, commit ${src.commit.slice(0, 7)}${src.branch ? ` on ${src.branch}` : ''}`);
+    if (src.dirty.length) warn(`uncommitted changes in the folder (${src.dirty.length} file${src.dirty.length === 1 ? '' : 's'}): the league only sees what is committed and pushed`);
+    if (!src.pushed) warn(`commit ${src.commit.slice(0, 7)} does not look pushed to ${src.remote}: run git push before you submit`);
+    for (const f of entryFiles(spec.dir)) {
+      const size = statSync(join(spec.dir, f)).size;
+      if (size > 95 * 1024 * 1024) bad(`${f} is ${(size / 1048576).toFixed(0)} MB: GitHub refuses files over 100 MB`);
+      else if (size < 300 && readFileSync(join(spec.dir, f), 'utf8').startsWith('version https://git-lfs.github.com/spec/')) bad(`${f} is a Git LFS pointer: the league cannot read files kept in LFS; commit the file itself`);
+    }
+  } catch (err) {
+    if (!(err instanceof UsageError)) throw err;
+    warn(`source: ${err.message}`);
+  }
   // A short game from each side under the league's rules, against the easy bots.
   const rules: MatchRules = { ...DEFAULT_RULES, maxTime: 90 };
   for (const side of [0, 1]) {
@@ -467,30 +483,91 @@ async function cmdLogin(argv: string[]) {
   console.log(`${green('logged in')} as ${bold(me.user.login)} on ${server}`);
 }
 
-/** The entry's files as a zip, as the league receives them. */
-function pack(dir: string): { bytes: Buffer; files: number } {
+/** Files and bytes of an entry folder, counted as the league counts them. */
+function entrySize(dir: string): { bytes: number; files: number } {
   const names = entryFiles(dir);
-  return { bytes: writeZip(names.map((name) => ({ name, data: readFileSync(join(dir, name)) }))), files: names.length };
+  return { bytes: names.reduce((n, name) => n + statSync(join(dir, name)).size, 0), files: names.length };
+}
+
+const git = (dir: string, ...args: string[]): string | null => {
+  const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true });
+  return r.status === 0 ? r.stdout.trim() : null;
+};
+
+interface LocalSource {
+  repo: { owner: string; repo: string };
+  /** The entry's folder in the repository. */
+  path: string;
+  commit: string;
+  /** The branch checked out, if any, and the remote it tracks. */
+  branch: string | null;
+  remote: string;
+  /** Uncommitted changes in the entry's folder (they are not part of what the league fetches). */
+  dirty: string[];
+  /** Whether a remote branch contains the commit, as far as this checkout knows. */
+  pushed: boolean;
+}
+
+/** Where the league would fetch the bot in `dir` from, worked out from its git checkout. Throws with what to do when it cannot be. */
+function localSource(dir: string, remoteName?: string): LocalSource {
+  if (git(dir, '--version') === null) throw new UsageError('git is not installed. The league takes bots from public GitHub repositories, so you need git to push yours.');
+  const top = git(dir, 'rev-parse', '--show-toplevel');
+  if (top === null) throw new UsageError(`${dir} is not in a git repository. The league takes bots from public GitHub repositories: put your bots in one (see "Enter it" in docs/league/README.md), push, and submit again.`);
+  const commit = git(dir, 'rev-parse', 'HEAD');
+  if (!commit) throw new UsageError(`the repository at ${top} has no commits yet: commit your bot and push it first`);
+  const path = (git(dir, 'rev-parse', '--show-prefix') ?? '').replace(/\/+$/, '');
+  const branch = git(dir, 'symbolic-ref', '--quiet', '--short', 'HEAD');
+  const upstream = branch ? git(dir, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}') : null;
+  const remote = remoteName ?? (upstream ? upstream.split('/')[0] : 'origin');
+  const url = git(dir, 'remote', 'get-url', remote);
+  if (!url) throw new UsageError(`the repository has no remote "${remote}". Create a public repository on GitHub, then: git remote add ${remote} https://github.com/<you>/<repo> && git push -u ${remote} ${branch ?? 'main'}`);
+  const repo = parseRepo(url);
+  if (!repo) throw new UsageError(`the remote "${remote}" (${url}) is not on GitHub. The league fetches bots from public GitHub repositories; push yours to one, or give it with --repo.`);
+  const dirty = (git(dir, 'status', '--porcelain', '--', '.') ?? '').split('\n').filter(Boolean).map((l) => l.slice(3));
+  const pushed = (git(dir, 'branch', '-r', '--contains', commit) ?? '').split('\n').some((l) => l.trim().startsWith(`${remote}/`));
+  return { repo: { owner: repo.owner, repo: repo.repo }, path, commit, branch: upstream ? upstream.slice(remote.length + 1) : branch, remote, dirty, pushed };
 }
 
 async function cmdSubmit(argv: string[]) {
   const a = parseArgs(argv, ['no-wait'], { m: 'note' });
   const dir = a._[0];
-  if (!dir) throw new UsageError('usage: aimoba submit <bot directory> [-m "what changed"] [--no-wait]');
-  const entry = loadEntry(existsSync(dir) ? dir : join('bots', dir));
+  const repoFlag = typeof a.flags.repo === 'string' ? a.flags.repo : null;
+  if (!dir && !repoFlag) {
+    throw new UsageError(
+      'usage: aimoba submit <bot directory> [-m "what changed"] [--no-wait]\n' +
+      '       aimoba submit --repo <github repository> [--path <folder>] [--ref <branch | tag | commit>]\n\n' +
+      'The league fetches your bot from its public GitHub repository. With a directory, it takes the commit you have\n' +
+      'checked out there (push it first); with --repo, the folder and branch you name.',
+    );
+  }
   const c = credentials(a.flags);
-  const { bytes, files } = pack(entry.dir);
   // A bot tuned against one version of the game may behave differently on another: say so before it is entered.
   const league = await api(c, 'GET', '/api/config');
   if (league.game && league.game !== gameFingerprint()) {
     console.log(yellow(`Your copy of the game differs from the league's (yours ${gameFingerprint()}, the league's ${league.game}).`));
     console.log(yellow(`Update it${league.templateUrl ? ` from ${league.templateUrl}` : ''} (git pull) and test your bot again; what you measured here may not hold there.`));
   }
-  console.log(`uploading ${bold(entry.manifest.name)}: ${files} files, ${(bytes.length / 1024).toFixed(0)} KiB`);
-  const note = typeof a.flags.note === 'string' ? `?note=${encodeURIComponent(a.flags.note)}` : '';
-  const out = await api(c, 'POST', `/api/bots/${entry.manifest.name}/versions${note}`, bytes, 'application/zip');
+  const note = typeof a.flags.note === 'string' ? a.flags.note : undefined;
+  let body: Record<string, string | undefined>;
+  if (repoFlag) {
+    body = { repo: repoFlag, path: typeof a.flags.path === 'string' ? a.flags.path : undefined, ref: typeof a.flags.ref === 'string' ? a.flags.ref : undefined, note };
+    console.log(`asking the league to fetch ${bold(repoFlag)}${body.path ? ` (${body.path})` : ''}${body.ref ? ` at ${body.ref}` : ''}`);
+  } else {
+    const entry = loadEntry(existsSync(dir) ? dir : join('bots', dir));
+    const src = localSource(entry.dir, typeof a.flags.remote === 'string' ? a.flags.remote : undefined);
+    const at = `github.com/${src.repo.owner}/${src.repo.repo}${src.path ? `/${src.path}` : ''} at ${src.commit.slice(0, 7)}`;
+    if (src.dirty.length) console.log(yellow(`Uncommitted changes in this folder are not entered (${src.dirty.slice(0, 3).join(', ')}${src.dirty.length > 3 ? ', ...' : ''}). Commit and push them first if they belong in.`));
+    if (!src.pushed) console.log(yellow(`Commit ${src.commit.slice(0, 7)} does not look pushed to ${src.remote}. Run git push first (if you just did, ignore this).`));
+    console.log(`entering ${bold(entry.manifest.name)} from ${at}`);
+    body = { repo: `https://github.com/${src.repo.owner}/${src.repo.repo}`, path: src.path, ref: src.commit, track: src.branch ?? undefined, name: entry.manifest.name, note };
+  }
+  const out = await api(c, 'POST', '/api/versions', body);
   const where = `${c.server}/league/bots/${out.bot.owner}/${out.bot.name}`;
-  console.log(`version ${bold(out.version.number)} received; the league is checking it`);
+  if (out.unchanged) {
+    console.log(`no change: version ${bold(out.version.number)} of ${out.bot.name} already has these files (${out.version.status === 'active' ? 'it plays' : out.version.status})\n${cyan(where)}`);
+    return;
+  }
+  console.log(`version ${bold(out.version.number)} fetched (commit ${String(out.version.commit).slice(0, 7)}); the league is checking it`);
   if (a.flags['no-wait']) { console.log(`follow it at ${cyan(where)}`); return; }
   for (let i = 0; i < 180; i++) {
     await new Promise((r) => setTimeout(r, 1000));
@@ -552,7 +629,7 @@ ${bold('Build and test')}
 
 ${bold('The league')}
   login --server <url>                                store an API token for a league
-  submit <bot directory> [-m note]                    enter a new version
+  submit <bot directory> [-m note]                    enter the commit you have checked out (from its public GitHub repository)
   status                                              your bots and their ratings
   logs <match id>                                     what your bot printed in a league match${HAS_SERVER ? `
   serve                                               run a league (see docs/hosting.md)` : ''}
